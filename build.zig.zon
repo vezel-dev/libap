@@ -1,0 +1,14 @@
+.{
+    .name = "libap",
+    .version = "0.1.0-dev",
+    .minimum_zig_version = "0.13.0",
+    .paths = .{
+        "LICENSE-LLVM",
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+        "inc",
+        "lib",
+    },
+    .dependencies = .{},
+}
