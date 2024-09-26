@@ -9,10 +9,10 @@ pub fn build(b: *std.Build) anyerror!void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const install_step = b.getInstallStep();
-    const check_step = b.step("check", "Run source code checks");
-    const fmt_step = b.step("fmt", "Fix source code formatting");
-    const test_step = b.step("test", "Build and run tests");
+    const install_tls = b.getInstallStep();
+    const check_tls = b.step("check", "Run source code checks");
+    const fmt_tls = b.step("fmt", "Fix source code formatting");
+    const test_tls = b.step("test", "Build and run tests");
 
     const fmt_paths = &[_][]const u8{
         "lib",
@@ -20,12 +20,12 @@ pub fn build(b: *std.Build) anyerror!void {
         "build.zig.zon",
     };
 
-    check_step.dependOn(&b.addFmt(.{
+    check_tls.dependOn(&b.addFmt(.{
         .paths = fmt_paths,
         .check = true,
     }).step);
 
-    fmt_step.dependOn(&b.addFmt(.{
+    fmt_tls.dependOn(&b.addFmt(.{
         .paths = fmt_paths,
     }).step);
 
@@ -35,11 +35,6 @@ pub fn build(b: *std.Build) anyerror!void {
         .optimize = optimize,
         // Avoid adding opinionated build options to the module itself as those will be forced on third-party users.
     });
-
-    install_step.dependOn(&b.addInstallHeaderFile(
-        b.path(b.pathJoin(&.{ "inc", "ap.h" })),
-        b.pathJoin(&.{ "ap", "ap.h" }),
-    ).step);
 
     const stlib_step = b.addStaticLibrary(.{
         // Avoid name clash with the DLL import library on Windows.
@@ -62,10 +57,12 @@ pub fn build(b: *std.Build) anyerror!void {
     shlib_step.linker_allow_shlib_undefined = false;
 
     inline for (.{ stlib_step, shlib_step }) |step| {
+        step.installHeadersDirectory(b.path("inc"), "ap", .{});
+
         b.installArtifact(step);
     }
 
-    install_step.dependOn(&b.addInstallLibFile(b.addWriteFiles().add("libap.pc", b.fmt(
+    install_tls.dependOn(&b.addInstallLibFile(b.addWriteFiles().add("libap.pc", b.fmt(
         \\prefix=${{pcfiledir}}/../..
         \\exec_prefix=${{prefix}}
         \\includedir=${{prefix}}/include/ap
@@ -90,5 +87,5 @@ pub fn build(b: *std.Build) anyerror!void {
     // Always run tests when requested, even if the binary has not changed.
     run_test_step.has_side_effects = true;
 
-    test_step.dependOn(&run_test_step.step);
+    test_tls.dependOn(&run_test_step.step);
 }
