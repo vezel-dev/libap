@@ -1,5 +1,8 @@
 # libap
 
+> [!WARNING]
+> This is currently in-development vaporware.
+
 libap is a port of [LLVM](https://llvm.org)'s arbitrary-precision (AP) numerics
 types to [Zig](https://ziglang.org), with an additional C API on top to allow C
 programs to make use of the library as well.
