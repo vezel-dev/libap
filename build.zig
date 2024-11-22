@@ -69,7 +69,7 @@ pub fn build(b: *std.Build) anyerror!void {
         \\libdir=${{prefix}}/lib
         \\
         \\Name: libap
-        \\Description: A port of LLVM's arbitrary-precision numerics types to Zig with a C API.
+        \\Description: An arbitrary-precision numerics library, ported from LLVM to Zig with a C API.
         \\URL: https://github.com/vezel-dev/libap
         \\Version: {s}
         \\
