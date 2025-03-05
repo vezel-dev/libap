@@ -29,28 +29,29 @@ pub fn build(b: *std.Build) anyerror!void {
         .paths = fmt_paths,
     }).step);
 
-    _ = b.addModule("ap", .{
+    const ap_mod = b.addModule("ap", .{
         .root_source_file = b.path(b.pathJoin(&.{ "lib", "ap.zig" })),
         .target = target,
         .optimize = optimize,
-        // Avoid adding opinionated build options to the module itself as those will be forced on third-party users.
     });
 
-    const stlib_step = b.addStaticLibrary(.{
+    const ap_c_mod = b.addModule("ap", .{
+        .root_source_file = b.path(b.pathJoin(&.{ "lib", "c.zig" })),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const stlib_step = b.addLibrary(.{
+        .linkage = .static,
         // Avoid name clash with the DLL import library on Windows.
         .name = if (target.result.os.tag == .windows) "libap" else "ap",
-        .root_source_file = b.path(b.pathJoin(&.{ "lib", "c.zig" })),
-        .target = target,
-        .optimize = optimize,
-        .strip = optimize != .Debug,
+        .root_module = ap_c_mod,
     });
 
-    const shlib_step = b.addSharedLibrary(.{
+    const shlib_step = b.addLibrary(.{
+        .linkage = .dynamic,
         .name = "ap",
-        .root_source_file = b.path(b.pathJoin(&.{ "lib", "c.zig" })),
-        .target = target,
-        .optimize = optimize,
-        .strip = optimize != .Debug,
+        .root_module = ap_c_mod,
     });
 
     // On Linux, undefined symbols are allowed in shared libraries by default; override that.
@@ -79,9 +80,7 @@ pub fn build(b: *std.Build) anyerror!void {
 
     const run_test_step = b.addRunArtifact(b.addTest(.{
         .name = "ap-test",
-        .root_source_file = b.path(b.pathJoin(&.{ "lib", "ap.zig" })),
-        .target = target,
-        .optimize = optimize,
+        .root_module = ap_mod,
     }));
 
     // Always run tests when requested, even if the binary has not changed.
