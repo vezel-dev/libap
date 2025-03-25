@@ -5,14 +5,25 @@ const std = @import("std");
 // TODO: https://github.com/ziglang/zig/issues/14531
 const version = std.SemanticVersion.parse("0.1.0-dev") catch unreachable;
 
+const Options = struct {
+    linkage: std.builtin.LinkMode,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    strip: ?bool,
+    code_model: std.builtin.CodeModel,
+    valgrind: ?bool,
+};
+
 pub fn build(b: *std.Build) anyerror!void {
-    // TODO: https://github.com/ziglang/zig/pull/23239
-    const linkage = b.option(std.builtin.LinkMode, "linkage", "Link binaries statically or dynamically") orelse .static;
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-    const strip = b.option(bool, "strip", "Omit debug information in binaries");
-    const code_model = b.option(std.builtin.CodeModel, "code-model", "Assume a particular code model") orelse .default;
-    const valgrind = b.option(bool, "valgrind", "Enable Valgrind client requests");
+    const options: Options = .{
+        // TODO: https://github.com/ziglang/zig/pull/23239
+        .linkage = b.option(std.builtin.LinkMode, "linkage", "Link binaries statically or dynamically") orelse .static,
+        .target = b.standardTargetOptions(.{}),
+        .optimize = b.standardOptimizeOption(.{}),
+        .strip = b.option(bool, "strip", "Omit debug information in binaries"),
+        .code_model = b.option(std.builtin.CodeModel, "code-model", "Assume a particular code model") orelse .default,
+        .valgrind = b.option(bool, "valgrind", "Enable Valgrind client requests"),
+    };
 
     const install_tls = b.getInstallStep();
     const check_tls = b.step("check", "Run source code checks");
@@ -30,6 +41,9 @@ pub fn build(b: *std.Build) anyerror!void {
         .check = true,
     }).step);
 
+    check_tls.dependOn(&createLibrary(b, &options).step);
+    check_tls.dependOn(&createTest(b, &options).step);
+
     fmt_tls.dependOn(&b.addFmt(.{
         .paths = fmt_paths,
     }).step);
@@ -39,19 +53,7 @@ pub fn build(b: *std.Build) anyerror!void {
         // Inherit other options from consumers of the module.
     });
 
-    const lib_step = b.addLibrary(.{
-        .linkage = linkage,
-        .name = "ap",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(b.pathJoin(&.{ "lib", "c.zig" })),
-            .target = target,
-            .optimize = optimize,
-            .strip = strip,
-            .code_model = code_model,
-            .valgrind = valgrind,
-        }),
-        .version = version,
-    });
+    const lib_step = createLibrary(b, &options);
 
     // On Linux, undefined symbols are allowed in shared libraries by default; override that.
     lib_step.linker_allow_shlib_undefined = false;
@@ -88,24 +90,41 @@ pub fn build(b: *std.Build) anyerror!void {
         .install_subdir = b.pathJoin(&.{ "share", "doc", "libap", "html" }),
     });
 
-    const test_step = b.addTest(.{
-        .name = "ap-test",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path(b.pathJoin(&.{ "lib", "ap.zig" })),
-            .target = target,
-            .optimize = optimize,
-            .strip = strip,
-            .code_model = code_model,
-            .valgrind = valgrind,
-        }),
-    });
-
-    test_step.linkage = linkage;
-
-    const run_test_step = b.addRunArtifact(test_step);
+    const run_test_step = b.addRunArtifact(createTest(b, &options));
 
     // Always run tests when requested, even if the binary has not changed.
     run_test_step.has_side_effects = true;
 
     test_tls.dependOn(&run_test_step.step);
+}
+
+fn createModule(b: *std.Build, options: *const Options, paths: []const []const u8) *std.Build.Module {
+    return b.createModule(.{
+        .root_source_file = b.path(b.pathJoin(paths)),
+        .target = options.target,
+        .optimize = options.optimize,
+        .strip = options.strip,
+        .code_model = options.code_model,
+        .valgrind = options.valgrind,
+    });
+}
+
+fn createLibrary(b: *std.Build, options: *const Options) *std.Build.Step.Compile {
+    return b.addLibrary(.{
+        .linkage = options.linkage,
+        .name = "ap",
+        .root_module = createModule(b, options, &.{ "lib", "c.zig" }),
+        .version = version,
+    });
+}
+
+fn createTest(b: *std.Build, options: *const Options) *std.Build.Step.Compile {
+    const step = b.addTest(.{
+        .name = "ap-test",
+        .root_module = createModule(b, options, &.{ "lib", "ap.zig" }),
+    });
+
+    step.linkage = options.linkage;
+
+    return step;
 }
