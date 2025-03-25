@@ -6,8 +6,13 @@ const std = @import("std");
 const version = std.SemanticVersion.parse("0.1.0-dev") catch unreachable;
 
 pub fn build(b: *std.Build) anyerror!void {
+    // TODO: https://github.com/ziglang/zig/pull/23239
+    const linkage = b.option(std.builtin.LinkMode, "linkage", "Link binaries statically or dynamically") orelse .static;
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const strip = b.option(bool, "strip", "Omit debug information in binaries");
+    const code_model = b.option(std.builtin.CodeModel, "code-model", "Assume a particular code model") orelse .default;
+    const valgrind = b.option(bool, "valgrind", "Enable Valgrind client requests");
 
     const install_tls = b.getInstallStep();
     const check_tls = b.step("check", "Run source code checks");
@@ -29,41 +34,31 @@ pub fn build(b: *std.Build) anyerror!void {
         .paths = fmt_paths,
     }).step);
 
-    const ap_mod = b.addModule("ap", .{
+    _ = b.addModule("ap", .{
         .root_source_file = b.path(b.pathJoin(&.{ "lib", "ap.zig" })),
-        .target = target,
-        .optimize = optimize,
+        // Inherit other options from consumers of the module.
     });
 
-    const ap_c_mod = b.addModule("ap", .{
-        .root_source_file = b.path(b.pathJoin(&.{ "lib", "c.zig" })),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const stlib_step = b.addLibrary(.{
-        .linkage = .static,
-        // Avoid name clash with the DLL import library on Windows.
-        .name = if (target.result.os.tag == .windows) "libap" else "ap",
-        .root_module = ap_c_mod,
-        .version = version,
-    });
-
-    const shlib_step = b.addLibrary(.{
-        .linkage = .dynamic,
+    const lib_step = b.addLibrary(.{
+        .linkage = linkage,
         .name = "ap",
-        .root_module = ap_c_mod,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(b.pathJoin(&.{ "lib", "c.zig" })),
+            .target = target,
+            .optimize = optimize,
+            .strip = strip,
+            .code_model = code_model,
+            .valgrind = valgrind,
+        }),
         .version = version,
     });
 
     // On Linux, undefined symbols are allowed in shared libraries by default; override that.
-    shlib_step.linker_allow_shlib_undefined = false;
+    lib_step.linker_allow_shlib_undefined = false;
 
-    inline for (.{ stlib_step, shlib_step }) |step| {
-        step.installHeadersDirectory(b.path("inc"), "ap", .{});
+    lib_step.installHeadersDirectory(b.path("inc"), "ap", .{});
 
-        b.installArtifact(step);
-    }
+    b.installArtifact(lib_step);
 
     install_tls.dependOn(
         &b.addInstallLibFile(
@@ -93,10 +88,21 @@ pub fn build(b: *std.Build) anyerror!void {
         .install_subdir = b.pathJoin(&.{ "share", "doc", "libap", "html" }),
     });
 
-    const run_test_step = b.addRunArtifact(b.addTest(.{
+    const test_step = b.addTest(.{
         .name = "ap-test",
-        .root_module = ap_mod,
-    }));
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(b.pathJoin(&.{ "lib", "ap.zig" })),
+            .target = target,
+            .optimize = optimize,
+            .strip = strip,
+            .code_model = code_model,
+            .valgrind = valgrind,
+        }),
+    });
+
+    test_step.linkage = linkage;
+
+    const run_test_step = b.addRunArtifact(test_step);
 
     // Always run tests when requested, even if the binary has not changed.
     run_test_step.has_side_effects = true;
