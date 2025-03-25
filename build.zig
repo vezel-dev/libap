@@ -70,8 +70,7 @@ pub fn build(b: *std.Build) anyerror!void {
             b.addWriteFiles().add(
                 "libap.pc",
                 b.fmt(
-                    \\prefix=${{pcfiledir}}/../..
-                    \\exec_prefix=${{prefix}}
+                    \\prefix={s}
                     \\includedir=${{prefix}}/include/ap
                     \\libdir=${{prefix}}/lib
                     \\
@@ -82,7 +81,7 @@ pub fn build(b: *std.Build) anyerror!void {
                     \\
                     \\Cflags: -I${{includedir}}
                     \\Libs: -L${{libdir}} -lap
-                , .{version}),
+                , .{ b.install_prefix, version }),
             ),
             b.pathJoin(&.{ "pkgconfig", "libap.pc" }),
         ).step,
