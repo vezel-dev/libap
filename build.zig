@@ -3,7 +3,7 @@
 const std = @import("std");
 
 // TODO: https://github.com/ziglang/zig/issues/14531
-const version = "0.1.0-dev";
+const version = std.SemanticVersion.parse("0.1.0-dev") catch unreachable;
 
 pub fn build(b: *std.Build) anyerror!void {
     const target = b.standardTargetOptions(.{});
@@ -46,12 +46,14 @@ pub fn build(b: *std.Build) anyerror!void {
         // Avoid name clash with the DLL import library on Windows.
         .name = if (target.result.os.tag == .windows) "libap" else "ap",
         .root_module = ap_c_mod,
+        .version = version,
     });
 
     const shlib_step = b.addLibrary(.{
         .linkage = .dynamic,
         .name = "ap",
         .root_module = ap_c_mod,
+        .version = version,
     });
 
     // On Linux, undefined symbols are allowed in shared libraries by default; override that.
@@ -63,20 +65,28 @@ pub fn build(b: *std.Build) anyerror!void {
         b.installArtifact(step);
     }
 
-    install_tls.dependOn(&b.addInstallLibFile(b.addWriteFiles().add("libap.pc", b.fmt(
-        \\prefix=${{pcfiledir}}/../..
-        \\exec_prefix=${{prefix}}
-        \\includedir=${{prefix}}/include/ap
-        \\libdir=${{prefix}}/lib
-        \\
-        \\Name: libap
-        \\Description: An arbitrary-precision numerics library, ported from LLVM to Zig with a C API.
-        \\URL: https://github.com/vezel-dev/libap
-        \\Version: {s}
-        \\
-        \\Cflags: -I${{includedir}}
-        \\Libs: -L${{libdir}} -lap
-    , .{version})), b.pathJoin(&.{ "pkgconfig", "libap.pc" })).step);
+    install_tls.dependOn(
+        &b.addInstallLibFile(
+            b.addWriteFiles().add(
+                "libap.pc",
+                b.fmt(
+                    \\prefix=${{pcfiledir}}/../..
+                    \\exec_prefix=${{prefix}}
+                    \\includedir=${{prefix}}/include/ap
+                    \\libdir=${{prefix}}/lib
+                    \\
+                    \\Name: libap
+                    \\Description: An arbitrary-precision numerics library, ported from LLVM to Zig with a C API.
+                    \\URL: https://github.com/vezel-dev/libap
+                    \\Version: {}
+                    \\
+                    \\Cflags: -I${{includedir}}
+                    \\Libs: -L${{libdir}} -lap
+                , .{version}),
+            ),
+            b.pathJoin(&.{ "pkgconfig", "libap.pc" }),
+        ).step,
+    );
 
     const run_test_step = b.addRunArtifact(b.addTest(.{
         .name = "ap-test",
