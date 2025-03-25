@@ -87,6 +87,12 @@ pub fn build(b: *std.Build) anyerror!void {
         ).step,
     );
 
+    b.installDirectory(.{
+        .source_dir = lib_step.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = b.pathJoin(&.{ "share", "doc", "libap", "html" }),
+    });
+
     const run_test_step = b.addRunArtifact(b.addTest(.{
         .name = "ap-test",
         .root_module = ap_mod,
