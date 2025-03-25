@@ -6,7 +6,7 @@ const std = @import("std");
 const version = std.SemanticVersion.parse("0.1.0-dev") catch unreachable;
 
 const Options = struct {
-    linkage: std.builtin.LinkMode,
+    linkage: ?std.builtin.LinkMode,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     strip: ?bool,
@@ -17,7 +17,7 @@ const Options = struct {
 pub fn build(b: *std.Build) anyerror!void {
     const options: Options = .{
         // TODO: https://github.com/ziglang/zig/pull/23239
-        .linkage = b.option(std.builtin.LinkMode, "linkage", "Link binaries statically or dynamically") orelse .static,
+        .linkage = b.option(std.builtin.LinkMode, "linkage", "Link binaries statically or dynamically"),
         .target = b.standardTargetOptions(.{}),
         .optimize = b.standardOptimizeOption(.{}),
         .strip = b.option(bool, "strip", "Omit debug information in binaries"),
@@ -111,7 +111,7 @@ fn createModule(b: *std.Build, options: *const Options, paths: []const []const u
 
 fn createLibrary(b: *std.Build, options: *const Options) *std.Build.Step.Compile {
     return b.addLibrary(.{
-        .linkage = options.linkage,
+        .linkage = options.linkage orelse .static,
         .name = "ap",
         .root_module = createModule(b, options, &.{ "lib", "c.zig" }),
         .version = version,
