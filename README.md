@@ -33,7 +33,7 @@ libap currently covers the following LLVM types:
 
 Changes made to these types in LLVM are periodically synchronized here. The
 current `master` code is based on LLVM commit
-[`bbc6504b3d2f237ed7e84dcaecb228bf2124f72e`](https://github.com/llvm/llvm-project/commit/bbc6504b3d2f237ed7e84dcaecb228bf2124f72e).
+[`8b9c91ec7da0ca3daab8ff6711126443e500bb66`](https://github.com/llvm/llvm-project/commit/8b9c91ec7da0ca3daab8ff6711126443e500bb66).
 
 ## Usage
 
@@ -55,11 +55,12 @@ zig fetch --save=ap git+https://github.com/vezel-dev/libap.git#vX.Y.Z
 Then, consume the `ap` module in your `build.zig`:
 
 ```zig
-const ap = b.dependency("ap", .{
+const libap = b.dependency("libap", .{
     .target = target,
     .optimize = optimize,
 });
-exe.root_module.addImport("ap", ap.module("ap"));
+
+exe.root_module.addImport("ap", libap.module("ap"));
 ```
 
 You should now be able to `@import("ap")` in your Zig code.
@@ -72,7 +73,9 @@ If you plan to use libap as a C library, you will likely want to install it
 somewhere on your system since C does not have a package manager. To do so, grab
 a source code archive from the
 [releases page](https://github.com/vezel-dev/libap/releases), and run
-`zig build --prefix $HOME/.local -Doptimize=ReleaseFast` or similar.
+`zig build --prefix $HOME/.local -Doptimize=ReleaseFast` or similar. This will
+build a static library by default; pass `-Dlinkage=dynamic` to build a dynamic
+library instead.
 
 The result will look like this:
 
@@ -82,11 +85,18 @@ $ tree $HOME/.local
 ├── include
 │   └── ap
 │       └── ap.h
-└── lib
-    ├── libap.a
-    ├── libap.so
-    └── pkgconfig
-        └── libap.pc
+├── lib
+│   ├── libap.a
+│   └── pkgconfig
+│       └── libap.pc
+└── share
+    └── doc
+        └── libap
+            └── html
+                ├── index.html
+                ├── main.js
+                ├── main.wasm
+                └── sources.tar
 ```
 
 Assuming you have set your `C_INCLUDE_PATH`, `LD_LIBRARY_PATH`, and
