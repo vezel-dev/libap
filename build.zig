@@ -124,7 +124,5 @@ fn createTest(b: *std.Build, options: *const Options) *std.Build.Step.Compile {
         .root_module = createModule(b, options, &.{ "lib", "ap.zig" }),
     });
 
-    step.linkage = options.linkage;
-
     return step;
 }
