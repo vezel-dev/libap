@@ -121,7 +121,16 @@ fn createLibrary(b: *std.Build, options: *const Options) *std.Build.Step.Compile
 fn createTest(b: *std.Build, options: *const Options) *std.Build.Step.Compile {
     const step = b.addTest(.{
         .name = "ap-test",
-        .root_module = createModule(b, options, &.{ "lib", "ap.zig" }),
+        .root_module = createModule(b, options, &.{ "lib", "c.zig" }),
+    });
+
+    step.root_module.addAnonymousImport("ap_h", .{
+        .root_source_file = b.addTranslateC(.{
+            .root_source_file = b.path(b.pathJoin(&.{ "inc", "ap.h" })),
+            .target = options.target,
+            .optimize = options.optimize,
+            .link_libc = false, // We only use libc-agnostic headers.
+        }).getOutput(),
     });
 
     return step;
