@@ -2,8 +2,16 @@
 
 const std = @import("std");
 
-// TODO: https://github.com/ziglang/zig/issues/14531
-const version = std.SemanticVersion.parse("0.1.0-dev") catch unreachable;
+// TODO: https://github.com/ziglang/zig/pull/22907
+const manifest: struct {
+    name: enum { libap },
+    fingerprint: u64,
+    version: []const u8,
+    minimum_zig_version: []const u8,
+    paths: []const []const u8,
+    dependencies: struct {},
+} = @import("build.zig.zon");
+const version = std.SemanticVersion.parse(manifest.version) catch unreachable;
 
 const Options = struct {
     linkage: ?std.builtin.LinkMode,
