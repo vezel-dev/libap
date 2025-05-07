@@ -44,12 +44,6 @@ jobs:
         with:
           cache-key: ${{ matrix.mode }}
           cache-size-limit: 128
-      - name: Check source code
+      - name: Build and test
         run: |
-          zig build check --summary all
-      - name: Build binary artifacts
-        run: |
-          zig build --summary all -Doptimize=${{ matrix.mode }}
-      - name: Build and run tests
-        run: |
-          zig build test --summary all -Doptimize=${{ matrix.mode }}
+          zig build check test --summary all -Doptimize=${{ matrix.mode }}
